@@ -1,86 +1,82 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ProductApi.Data;
-using ProductApi.Models;
+using ProductApi.Services;
+using ProductApi.DTOs;
 
 namespace ProductApi.Controllers;
 
 [ApiController]
-[Route("products")]
+[Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IProductService _service;
 
-    public ProductsController(AppDbContext context)
+    public ProductsController(IProductService service)
     {
-        _context = context;
+        _service = service;
     }
 
     // GET /products
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<IActionResult> GetAll()
     {
-        return await _context.Products.ToListAsync();
+        var products = await _service.GetAllAsync();
+
+        return Ok(products);
     }
 
     // GET /products/{id}
     [HttpGet("{id}")]
-    public async Task<ActionResult<Product>> GetProduct(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _service.GetByIdAsync(id);
 
-        if (product == null)
-            return NotFound();
+         if (product == null)
+         {
 
-        return product;
+            return NotFound($"Product with id {id} not found");
+         }
+
+        return Ok(product);
     }
+
 
     // POST /products
     [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    public async Task<IActionResult> Create(ProductCreateDto dto)
     {
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
+        var createdProduct = await _service.CreateAsync(dto);
 
-        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+        return CreatedAtAction(nameof(GetById),new { id = createdProduct.Id }, createdProduct);
     }
+
 
     // PUT /products/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct(int id, Product product)
+    public async Task<IActionResult> Update(int id, ProductUpdateDto dto)
     {
-        if (id != product.Id)
-            return BadRequest();
+        var updated = await _service.UpdateAsync(id, dto);
 
-        _context.Entry(product).State = EntityState.Modified;
-
-        try
+        if (!updated)
         {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!_context.Products.Any(p => p.Id == id))
-                return NotFound();
-            else
-                throw;
+            return NotFound($"Product with id {id} not found");
         }
 
         return NoContent();
     }
+
 
     // DELETE /products/{id}
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProduct(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var deleted = await _service.DeleteAsync(id);
 
-        if (product == null)
-            return NotFound();
-
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
+        if (!deleted)
+        {
+            return NotFound($"Product with id {id} not found");
+        }
 
         return NoContent();
     }
+
 }
